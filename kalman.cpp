@@ -23,13 +23,13 @@ public:
     time++;
 
     theta = theta + period * omega;
-    omega = omega - period * 9.8 * sin(theta);
+    omega = omega - period * 9.81 * sin(theta);
   }
 };
 
 /**
  * @class RandomVector
- * @brief I took this directly from ujwal. Don't know how it works.
+ * @brief I took this directly from ujwol. Don't know how it works.
  *
  */
 class RandomVector {
@@ -107,20 +107,19 @@ public:
   Eigen::Matrix<double, 2, 2> v; // this is the sensor covariance
   Eigen::Matrix<double, 2, 2> w;
 
-  double period = 0.1f;
+  double period = 0.1;
   KalmanFilter() {
-    state(0, 0) = 0.5;
-    state(0, 1) = 0.2;
+    state << 0.5, 0.2;
 
-    state_cov = Eigen::Matrix<double, 2, 2>::Identity();
-    measurement_cov = Eigen::Matrix<double, 2, 2>::Identity();
+    state_cov.setIdentity();
+    measurement_cov.setIdentity();
 
-    w << 0, 0, 0, 0;
+    w.setZero();
     v << 0.09, 0.01, 0.01, 0.3;
   }
 
   void update(Sensor s) {
-    sensor_jacobian << 1, 0, 0, 1;
+    sensor_jacobian.setIdentity();
 
     Eigen::Matrix<double, 2, 1> sensor;
     sensor << s.theta, s.omega;
@@ -128,42 +127,41 @@ public:
     Eigen::Matrix<double, 2, 2> A =
         sensor_jacobian * state_cov * sensor_jacobian.transpose() + v;
 
-    Eigen::Matrix<double, 2, 1> kalman_gain =
+    Eigen::Matrix<double, 2, 2> kalman_gain =
         state_cov * sensor_jacobian.transpose() * A.inverse();
 
     state = state + kalman_gain * (sensor - sensor_jacobian * state);
 
-    Eigen::Matrix<double, 2, 2> I = Eigen::Matrix<double, 2, 2>::Identity();
+    Eigen::Matrix<double, 2, 2> I;
+    I.setIdentity();
 
     state_cov = (I - kalman_gain * sensor_jacobian) * state_cov;
   }
 
   void predict() {
-
     model_jacobian << 1, period, (-period * 9.81 * cos(state(0, 0))), 1;
 
-    state(0, 0) = state(0, 0) + period * state(0, 1);
-    state(1, 0) = state(1, 0) - period * 9.8 * sin(state(0, 0));
+    state(0, 0) = state(0, 0) + period * state(1, 0);
+    state(1, 0) = state(1, 0) - period * 9.81 * sin(state(0, 0));
 
     state_cov = model_jacobian * state_cov * model_jacobian.transpose() + w;
   }
 };
 
-std::ostream &operator<<(std::ostream &os, Pendulum p) {
+std::ostream &operator<<(std::ostream &os, const Pendulum p) {
   return os << p.time * p.period << "\t" << p.theta;
 }
 
-std::ostream &operator<<(std::ostream &os, Sensor s) {
+std::ostream &operator<<(std::ostream &os, const Sensor s) {
   return os << "\t" << s.theta;
 }
 
 int main() {
-  Pendulum P(0, 0);
+  Pendulum P(0.5,0.2);
   Sensor S;
   KalmanFilter K;
 
   std::ofstream fs("data.txt", std::ios::out);
-  fs << P;
 
   for (int i = 0; i < 100; i++) {
     P.tick();
