@@ -2,8 +2,11 @@
 #include <cmath>
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/src/Core/Matrix.h>
+#include <fstream>
 #include <iostream>
+#include <ostream>
 #include <random>
+#include <sys/types.h>
 
 class Pendulum {
 public:
@@ -132,7 +135,7 @@ public:
 
     Eigen::Matrix<double, 2, 2> I = Eigen::Matrix<double, 2, 2>::Identity();
 
-		state_cov = (I - kalman_gain * sensor_jacobian) * state_cov;
+    state_cov = (I - kalman_gain * sensor_jacobian) * state_cov;
   }
 
   void predict() {
@@ -146,4 +149,30 @@ public:
   }
 };
 
-int main() {}
+std::ostream &operator<<(std::ostream &os, Pendulum p) {
+  return os << p.time * p.period << "\t" << p.theta;
+}
+
+std::ostream &operator<<(std::ostream &os, Sensor s) {
+  return os << "\t" << s.theta;
+}
+
+int main() {
+  Pendulum P(0, 0);
+  Sensor S;
+  KalmanFilter K;
+
+  std::ofstream fs("data.txt", std::ios::out);
+  fs << P;
+
+  for (int i = 0; i < 100; i++) {
+    P.tick();
+    K.predict();
+    S.update_sensor_data(P);
+    fs << S;
+    K.update(S);
+    fs << "\t" << K.state(0, 0);
+    fs << "\n";
+  }
+  return 0;
+}
