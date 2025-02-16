@@ -95,8 +95,8 @@ public:
 
 class KalmanFilter {
 public:
-  Eigen::Matrix<double, 2, 2> model_jacobian;
-  Eigen::Matrix<double, 2, 2> sensor_jacobian;
+  Eigen::Matrix<double, 2, 2> A; // state transition matrix (model)
+  Eigen::Matrix<double, 2, 2> C; // measurement matrix
 
   Eigen::Matrix<double, 2, 1> state;
   Eigen::Matrix<double, 2, 2> state_cov;
@@ -104,8 +104,8 @@ public:
   Eigen::Matrix<double, 2, 1> measurement;
   Eigen::Matrix<double, 2, 2> measurement_cov;
 
-  Eigen::Matrix<double, 2, 2> v; // this is the sensor covariance
-  Eigen::Matrix<double, 2, 2> w;
+  Eigen::Matrix<double, 2, 2> v; // this is the sensor noise
+  Eigen::Matrix<double, 2, 2> w; // this is measurement noise
 
   double period = 0.1;
   KalmanFilter() {
@@ -119,32 +119,32 @@ public:
   }
 
   void update(Sensor s) {
-    sensor_jacobian.setIdentity();
+    C.setIdentity();
 
     Eigen::Matrix<double, 2, 1> sensor;
     sensor << s.theta, s.omega;
 
-    Eigen::Matrix<double, 2, 2> A =
-        sensor_jacobian * state_cov * sensor_jacobian.transpose() + v;
+    Eigen::Matrix<double, 2, 2> S =
+        C * state_cov * C.transpose() + v;
 
     Eigen::Matrix<double, 2, 2> kalman_gain =
-        state_cov * sensor_jacobian.transpose() * A.inverse();
+        state_cov * C.transpose() * S.inverse();
 
-    state = state + kalman_gain * (sensor - sensor_jacobian * state);
+    state = state + kalman_gain * (sensor - C * state);
 
     Eigen::Matrix<double, 2, 2> I;
     I.setIdentity();
 
-    state_cov = (I - kalman_gain * sensor_jacobian) * state_cov;
+    state_cov = (I - kalman_gain * C) * state_cov;
   }
 
   void predict() {
-    model_jacobian << 1, period, (-period * 9.81 * cos(state(0, 0))), 1;
+    A << 1, period, (-period * 9.81 * cos(state(0, 0))), 1;
 
     state(0, 0) = state(0, 0) + period * state(1, 0);
     state(1, 0) = state(1, 0) - period * 9.81 * sin(state(0, 0));
 
-    state_cov = model_jacobian * state_cov * model_jacobian.transpose() + w;
+    state_cov = A * state_cov * A.transpose() + w;
   }
 };
 
